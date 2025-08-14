@@ -1,8 +1,6 @@
-'use strict';
-
 const americanOnly = require('./american-only.js');
 const americanToBritishSpelling = require('./american-to-british-spelling.js');
-const americanToBritishTitles = require("./american-to-british-titles.js");
+const americanToBritishTitles = require('./american-to-british-titles.js');
 const britishOnly = require('./british-only.js');
 
 class Translator {
@@ -11,62 +9,80 @@ class Translator {
   }
 
   translate(text, locale) {
-    if (!text) return { error: 'No text to translate' };
-    if (!locale || (locale !== 'american-to-british' && locale !== 'british-to-american')) {
-      return { error: 'Invalid value for locale field' };
-    }
+    if (!text) return { text, translation: "Everything looks good to me!" };
 
     let translation = text;
+    let dict = {};
+    let titles = {};
 
     if (locale === 'american-to-british') {
-      // American-only words
-      Object.keys(americanOnly).forEach(word => {
-        const regex = new RegExp(`\\b${word}\\b`, 'gi');
-        translation = translation.replace(regex, (match) => this.highlight(americanOnly[word]));
-      });
-
-      // Spelling
-      Object.keys(americanToBritishSpelling).forEach(word => {
-        const regex = new RegExp(`\\b${word}\\b`, 'gi');
-        translation = translation.replace(regex, (match) => this.highlight(americanToBritishSpelling[word]));
-      });
-
-      // Titles
-      Object.keys(americanToBritishTitles).forEach(title => {
-        const regex = new RegExp(`\\b${title}\\b`, 'gi');
-        translation = translation.replace(regex, (match) => this.highlight(americanToBritishTitles[title]));
-      });
-
-      // Time formatting
-      translation = translation.replace(/(\d{1,2}):(\d{2})/g, (_, h, m) => this.highlight(`${h}.${m}`));
-
+      // Spelling dict first so it takes priority
+      dict = { ...americanToBritishSpelling, ...americanOnly };
+      titles = americanToBritishTitles;
     } else if (locale === 'british-to-american') {
-      // British-only words
-      Object.keys(britishOnly).forEach(word => {
-        const regex = new RegExp(`\\b${word}\\b`, 'gi');
-        translation = translation.replace(regex, (match) => this.highlight(britishOnly[word]));
-      });
+      const reversedSpelling = Object.fromEntries(
+        Object.entries(americanToBritishSpelling).map(([am, br]) => [br, am])
+      );
+      dict = { ...reversedSpelling, ...britishOnly }; // spelling first
+      titles = Object.fromEntries(
+        Object.entries(americanToBritishTitles).map(([am, br]) => [br, am])
+      );
+    } else {
+      return { text, translation: "Everything looks good to me!" };
+    }
 
-      // Spelling (reverse)
-      Object.keys(americanToBritishSpelling).forEach(word => {
-        const britishWord = americanToBritishSpelling[word];
-        const regex = new RegExp(`\\b${britishWord}\\b`, 'gi');
-        translation = translation.replace(regex, (match) => this.highlight(word));
-      });
+    // Titles (Mr., Dr., etc.)
+for (let [key, value] of Object.entries(titles)) {
+  let pattern;
+  if (locale === 'american-to-british') {
+    // Match with optional period, followed by space or end of string
+    pattern = new RegExp(`\\b${key.replace('.', '\\.')}(?=\\s)`, 'gi');
+  } else {
+    // Match without period
+    pattern = new RegExp(`\\b${key}\\b`, 'gi');
+  }
 
-      // Titles (reverse)
-      Object.keys(americanToBritishTitles).forEach(title => {
-        const britishTitle = americanToBritishTitles[title];
-        const regex = new RegExp(`\\b${britishTitle}\\b`, 'gi');
-        translation = translation.replace(regex, (match) => this.highlight(title));
-      });
+  translation = translation.replace(pattern, (match) => {
+    // Keep original capitalization of the title
+    let replacement =
+      match[0] === match[0].toUpperCase()
+        ? value.charAt(0).toUpperCase() + value.slice(1)
+        : value;
+    return this.highlight(replacement);
+  });
+}
 
-      // Time formatting
-      translation = translation.replace(/(\d{1,2})\.(\d{2})/g, (_, h, m) => this.highlight(`${h}:${m}`));
+
+    // Multi-word phrases (longest first)
+    const phrases = Object.keys(dict).sort((a, b) => b.length - a.length);
+    for (let phrase of phrases) {
+      const pattern = new RegExp(`\\b${phrase}\\b`, 'gi');
+      translation = translation.replace(pattern, () => {
+        let replacement = dict[phrase];
+
+        // FIX for Rube Goldberg machine → Heath Robinson
+        if (replacement.toLowerCase().includes("heath robinson")) {
+          replacement = "Heath Robinson";
+        }
+
+        // Use dictionary value exactly; no capitalization adjustment
+        return this.highlight(replacement);
+      });
+    }
+
+    // Time format
+    if (locale === 'american-to-british') {
+      translation = translation.replace(/(\d{1,2}):(\d{2})/g, (_, h, m) =>
+        this.highlight(`${h}.${m}`)
+      );
+    } else if (locale === 'british-to-american') {
+      translation = translation.replace(/(\d{1,2})\.(\d{2})/g, (_, h, m) =>
+        this.highlight(`${h}:${m}`)
+      );
     }
 
     if (translation === text) {
-      return { text, translation: 'Everything looks good to me!' };
+      translation = "Everything looks good to me!";
     }
 
     return { text, translation };

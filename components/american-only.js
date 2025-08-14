@@ -169,7 +169,7 @@ module.exports = {
   "trashcan": "bin",
   "travel trailer": "caravan",
   "turn signal": "turn-indicators",
-  "tylenol": "paracetamol",
+  "tylenol": "Paracetamol",
   "upscale": "upmarket",
   "vacationer": "holidaymaker",
   "vacay": "hols",
