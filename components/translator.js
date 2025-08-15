@@ -16,14 +16,13 @@ class Translator {
     let titles = {};
 
     if (locale === 'american-to-british') {
-      // Spelling dict first so it takes priority
       dict = { ...americanToBritishSpelling, ...americanOnly };
       titles = americanToBritishTitles;
     } else if (locale === 'british-to-american') {
       const reversedSpelling = Object.fromEntries(
         Object.entries(americanToBritishSpelling).map(([am, br]) => [br, am])
       );
-      dict = { ...reversedSpelling, ...britishOnly }; // spelling first
+      dict = { ...reversedSpelling, ...britishOnly };
       titles = Object.fromEntries(
         Object.entries(americanToBritishTitles).map(([am, br]) => [br, am])
       );
@@ -31,53 +30,56 @@ class Translator {
       return { text, translation: "Everything looks good to me!" };
     }
 
-    // Titles (Mr., Dr., etc.)
-for (let [key, value] of Object.entries(titles)) {
-  let pattern;
-  if (locale === 'american-to-british') {
-    // Match with optional period, followed by space or end of string
-    pattern = new RegExp(`\\b${key.replace('.', '\\.')}(?=\\s)`, 'gi');
-  } else {
-    // Match without period
-    pattern = new RegExp(`\\b${key}\\b`, 'gi');
-  }
+    // --- Handle titles (Mr., Dr., Prof., etc.) ---
+    for (let [key, value] of Object.entries(titles)) {
+      let pattern;
+      if (locale === 'american-to-british') {
+        pattern = new RegExp(`\\b${key.replace('.', '\\.')}(?=\\s|$)`, 'gi');
+      } else {
+        pattern = new RegExp(`\\b${key}(?=\\s|$)`, 'gi');
+      }
 
-  translation = translation.replace(pattern, (match) => {
-    // Keep original capitalization of the title
-    let replacement =
-      match[0] === match[0].toUpperCase()
-        ? value.charAt(0).toUpperCase() + value.slice(1)
-        : value;
-    return this.highlight(replacement);
-  });
-}
-
-
-    // Multi-word phrases (longest first)
-    const phrases = Object.keys(dict).sort((a, b) => b.length - a.length);
-    for (let phrase of phrases) {
-      const pattern = new RegExp(`\\b${phrase}\\b`, 'gi');
-      translation = translation.replace(pattern, () => {
-        let replacement = dict[phrase];
-
-        // FIX for Rube Goldberg machine → Heath Robinson
-        if (replacement.toLowerCase().includes("heath robinson")) {
-          replacement = "Heath Robinson";
-        }
-
-        // Use dictionary value exactly; no capitalization adjustment
+      translation = translation.replace(pattern, (match) => {
+        let replacement =
+          match[0] === match[0].toUpperCase()
+            ? value.charAt(0).toUpperCase() + value.slice(1)
+            : value;
         return this.highlight(replacement);
       });
     }
 
-    // Time format
+    // --- Multi-word phrases first ---
+    const phrases = Object.keys(dict).sort((a, b) => b.length - a.length);
+    for (let phrase of phrases) {
+      const pattern = new RegExp(`\\b${phrase}\\b(?=[^\\w]|$)`, 'gi');
+      translation = translation.replace(pattern, (match) => {
+        let replacement = dict[phrase];
+
+        // Special fix for "Rube Goldberg machine" → "Heath Robinson"
+        if (replacement.toLowerCase().includes("heath robinson")) {
+          replacement = "Heath Robinson";
+        }
+
+        // Preserve capitalization if match is capitalized
+        if (match[0] === match[0].toUpperCase()) {
+          replacement =
+            replacement.charAt(0).toUpperCase() + replacement.slice(1);
+        }
+
+        return this.highlight(replacement);
+      });
+    }
+
+    // --- Time format ---
     if (locale === 'american-to-british') {
-      translation = translation.replace(/(\d{1,2}):(\d{2})/g, (_, h, m) =>
-        this.highlight(`${h}.${m}`)
+      translation = translation.replace(
+        /(\d{1,2}):(\d{2})(?=\b)/g,
+        (_, h, m) => this.highlight(`${h}.${m}`)
       );
     } else if (locale === 'british-to-american') {
-      translation = translation.replace(/(\d{1,2})\.(\d{2})/g, (_, h, m) =>
-        this.highlight(`${h}:${m}`)
+      translation = translation.replace(
+        /(\d{1,2})\.(\d{2})(?=\b)/g,
+        (_, h, m) => this.highlight(`${h}:${m}`)
       );
     }
 
