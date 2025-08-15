@@ -38,7 +38,7 @@ suite('Unit Tests', () => {
   test('Translate Like a high tech Rube Goldberg machine. to British English', () => {
     const result = translator.translate('Like a high tech Rube Goldberg machine.', 'american-to-british');
     assert.equal(result.translation, 'Like a high tech <span class="highlight">Heath Robinson</span> machine.');
-    assert.include(result.translation, '<span class="highlight">Heath Robinson</span>');
+    assert.include(result.translation, '<span class="highlight">Heath Robinson</span> machine');
   });
 
   test('Translate To play hooky means to skip class or work. to British English', () => {

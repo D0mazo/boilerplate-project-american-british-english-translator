@@ -55,9 +55,9 @@ class Translator {
       translation = translation.replace(pattern, (match) => {
         let replacement = dict[phrase];
 
-        // Special fix for "Rube Goldberg machine" → "Heath Robinson"
-        if (replacement.toLowerCase().includes("heath robinson")) {
-          replacement = "Heath Robinson";
+        // Special fix for "Rube Goldberg machine" → highlight only "Heath Robinson"
+        if (/rube goldberg machine/i.test(phrase)) {
+          return this.highlight("Heath Robinson") + " machine";
         }
 
         // Preserve capitalization if match is capitalized
